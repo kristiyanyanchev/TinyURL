@@ -1,4 +1,4 @@
-package main
+package url
 
 import (
 	"context"
@@ -74,9 +74,10 @@ func (us *URLShortener) RedirectHandler(w http.ResponseWriter, r *http.Request) 
 
 }
 
-func main() {
+func init() {
 	var cfg = Config{}
-	err := envconfig.Process("", &cfg)
+	err := envconfig.Process("App", &cfg)
+	log.Println(cfg)
 	if err != nil {
 		log.Fatalf("Failed to process env var: %v", err)
 	}
