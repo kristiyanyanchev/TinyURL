@@ -22,12 +22,9 @@ type Config struct {
 }
 
 func createClient(ctx context.Context, cfg Config) *firestore.Client {
-	// Replace the placeholder with the actual project ID
-	projectID := cfg.ProjectID
-
 	jsonToken := []byte(`{
 		"type": "service_account",
-		"project_id": "` + projectID + `",
+		"project_id": "` + cfg.ProjectID + `",
 		"private_key_id": "` + cfg.PrivateKeyId + `",
 		"private_key": "` + cfg.PrivateKey + `",
 		"client_email": "` + cfg.ClientEmail + `",
@@ -40,7 +37,7 @@ func createClient(ctx context.Context, cfg Config) *firestore.Client {
 	  }
 	  `)
 
-	client, err := firestore.NewClientWithDatabase(ctx, projectID, "tiny-url-db", option.WithCredentialsJSON(jsonToken))
+	client, err := firestore.NewClientWithDatabase(ctx, cfg.ProjectID, "tiny-url-db", option.WithCredentialsJSON(jsonToken))
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
