@@ -60,6 +60,7 @@ func (us *URLShortener) SearchForMatch(url string) string {
 }
 
 func (us *URLShortener) RedirectHandler(w http.ResponseWriter, r *http.Request) {
+	defer us.clinet.Close()
 	start := time.Now()
 	defer func() {
 		log.Printf("took %v\n", time.Since(start))
@@ -77,6 +78,7 @@ func (us *URLShortener) AddNewHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
 		return
 	}
+	defer us.clinet.Close()
 
 	start := time.Now()
 	defer func() {
@@ -113,7 +115,6 @@ func init() {
 	mux := http.NewServeMux()
 	client := createClient(context.Background(), cfg)
 
-	defer client.Close()
 	us := &URLShortener{
 		clinet: client,
 	}
