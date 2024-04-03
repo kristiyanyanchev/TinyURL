@@ -2,6 +2,7 @@ package url
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -47,7 +48,8 @@ func createClient(ctx context.Context, cfg Config) *firestore.Client {
 }
 
 type URLShortener struct {
-	urls map[string]string
+	urls   map[string]string
+	clinet *firestore.Client
 }
 
 func (us *URLShortener) SearchForMatch(url string) string {
@@ -58,16 +60,47 @@ func (us *URLShortener) SearchForMatch(url string) string {
 }
 
 func (us *URLShortener) RedirectHandler(w http.ResponseWriter, r *http.Request) {
+	defer us.clinet.Close()
 	start := time.Now()
 	defer func() {
 		log.Printf("took %v\n", time.Since(start))
 	}()
-	if r.URL.Path == "/NotFound" {
+	if r.URL.Path == "/NotFound" || r.URL.Path == "/new" {
 		return
 	}
 
 	http.Redirect(w, r, us.SearchForMatch(r.URL.Path), http.StatusSeeOther)
 	log.Println(r.URL.Path)
+
+}
+
+func (us *URLShortener) AddNewHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		return
+	}
+	defer us.clinet.Close()
+
+	start := time.Now()
+	defer func() {
+		log.Printf("took %v\n", time.Since(start))
+	}()
+
+	body := []byte{}
+	urlMap := map[string]string{}
+	r.Body.Read(body)
+	log.Println(urlMap)
+
+	err := json.NewDecoder(r.Body).Decode(&urlMap)
+	if err != nil {
+		log.Fatalf("Failed to unmarshal body: %v", err)
+	}
+	for k, v := range urlMap {
+		us.urls[k] = v
+	}
+	_, err = us.clinet.Collection("urls").Doc("kbj2w5cHLZzSiLJFwvqj").Update(context.Background(), []firestore.Update{{Path: "urls", Value: us.urls}})
+	if err != nil {
+		log.Fatalf("Failed to update urls: %v", err)
+	}
 
 }
 
@@ -82,13 +115,15 @@ func init() {
 	mux := http.NewServeMux()
 	client := createClient(context.Background(), cfg)
 
-	defer client.Close()
-	us := &URLShortener{}
+	us := &URLShortener{
+		clinet: client,
+	}
 
 	urls, err := client.Collection("urls").Doc("kbj2w5cHLZzSiLJFwvqj").Get(context.Background())
 	if err != nil {
 		log.Fatalf("Failed to get urls: %v", err)
 	}
+
 	us.urls = make(map[string]string)
 	temp := make(map[string]map[string]string)
 	urls.DataTo(&temp)
@@ -98,5 +133,6 @@ func init() {
 	log.Println(len(us.urls))
 
 	mux.HandleFunc("/", us.RedirectHandler)
+	mux.HandleFunc("/new", us.AddNewHandler)
 	functions.HTTP("url", mux.ServeHTTP)
 }
